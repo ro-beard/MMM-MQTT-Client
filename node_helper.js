@@ -11,11 +11,12 @@ module.exports = NodeHelper.create({
   mqttClientStarted: false,
   config: {},
   mqttConnections: [],
+  notificationsToListenForPublish: [],
   start: function() {
     console.log(this.name + ' | node_helper started.');
   },
   socketNotificationReceived: function(notification, payload) {
-    console.log(this.name + ' | socket notificaton ' + notification + ' received.');
+    console.log(this.name + ' | socket notification ' + notification + ' received.');
     if (notification === (this.name + '_CONFIG')) {
       console.log(this.name + ' | Initial configuration received.');
       this.config = payload;
@@ -24,6 +25,20 @@ module.exports = NodeHelper.create({
       } else {
         this.startMqttListener();
       }
+    } else if (notification === (this.name + '_PUBLISH')) {
+      this.publishForNotification(notification, payload);
+    }
+  },
+  publishForNotification(notification, payload) {
+    if (this.notificationsToListenForPublish.includes(payload.notification)) {
+      this.mqttConnections.filter(c => c.publications.filter(p => p.notification === payload.notification).length > 0)
+        .forEach(connection => {
+          connection.publications.filter(p => p.notification === payload.notification)
+            .forEach(publication => {
+              console.log (this.name +' | Message will be published to ' + connection.url + "/" + publication.topic);
+              connection.client.publish(publication.topic, JSON.stringify(payload.payload));
+            });
+        });
     }
   },
   startMqttListener: function() {
@@ -34,12 +49,19 @@ module.exports = NodeHelper.create({
         var currentConnection = this.config.mqttConnections[i];
         self.addConnection(currentConnection);
       }
+      setTimeout(function() {
+        console.log(self.name + " | Notifications ", self.notificationsToListenForPublish);
+        self.sendSocketNotification(self.name + "_STARTUP_DONE", {
+          notifications: self.notificationsToListenForPublish
+        });
+      }, 1000);
     } else {
       console.log(this.name + ' | No connections configured.');
     }
   },
   addConnection: function(connection) {
     console.log(this.name + ' | Adding current connection.', connection);
+    var self = this;
     var mqttConnection = {};
     mqttConnection.host = connection.host || 'localhost';
     mqttConnection.port = connection.port || 1883;
@@ -52,6 +74,7 @@ module.exports = NodeHelper.create({
     if (connection.publications) {
       connection.publications.forEach(pub => {
         mqttConnection.publications.push(pub);
+        self.notificationsToListenForPublish.push(pub.notification);
       });
     }
     if (connection.subscriptions) {
@@ -69,6 +92,7 @@ module.exports = NodeHelper.create({
       url = url + ':' + connection.port
     }
     console.log(self.name + ' | Connecting to MQTT-Server ' + url);
+    connection.url = url;
     connection.client = mqtt.connect(url, connection.options);
     connection.client.on('error', function(err) {
       console.log(self.name + ' | ' + url + ' An error occurred for current mqtt-connection: ' + err);
