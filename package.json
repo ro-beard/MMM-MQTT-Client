@@ -1,0 +1,20 @@
+{
+  "name": "MMM-MQTT-Client",
+  "version": "1.0.0",
+  "description": "Magic-Mirror module that is able to subscribe to mqtt-topics and handle the topic as an internal notification",
+  "main": "MMM-MQTT-Client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Magic",
+    "Mirror",
+    "MagicMirror",
+    "MQTT"
+  ],
+  "author": "Robert Rosenberger",
+  "license": "MIT",
+  "dependencies": {
+    "mqtt": "^3.0.0"
+  }
+}
